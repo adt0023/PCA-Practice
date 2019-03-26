@@ -7,6 +7,15 @@ summary(iris.pca)
 str(iris.pca)
 library(devtools)
 library(ggbiplot)
+ggbiplot(iris.pca)
+ggbiplot(iris.pca, labels = rownames(iris))
+ggbiplot(iris.pca, labels = iris$species) #why that works and iris doesn't is beyond me
+ggbiplot(iris.pca,ellipse=TRUE,  labels=rownames(iris), groups=iris$Species) #adding ellipses
+ggbiplot(iris.pca,ellipse=TRUE,choices=c(3,4),   labels=rownames(iris), groups=iris$Species) #adding labels
+ggbiplot(iris.pca,ellipse=TRUE,choices=c(3,6),   labels=rownames(iris), groups=iris$Species) #only goes to highest PCA/n of datasets
+ggbiplot(iris.pca,ellipse=TRUE,obs.scale = 1, var.scale = 1,  labels=rownames(iris), groups=iris$Species) #scaling
+ggbiplot(iris.pca,ellipse=TRUE,obs.scale = 1, var.scale = 1, var.axes = FALSE,  labels=rownames(iris), groups=iris$Species) #removing arrows
+
 
 #Read about the following dataset presented here: https://www.kaggle.com/costalaether/yeast-transcriptomics
 
