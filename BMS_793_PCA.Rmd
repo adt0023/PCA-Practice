@@ -1,0 +1,252 @@
+---
+title: "BMS_793_PCA.Rmd"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+##knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(stats)
+library(MASS)
+library(scales)
+```
+
+## Intro PCA Example
+
+Principle component analysis
+Fit of samples to model, if data is correlated and in what direction (applying axis/slope)
+Can apply to hundreds of variates
+
+Simple two dimensional example with fake data.  Create and plot some fake bivariate data.
+co-variance matrix, correlations between variances
+(Put 0's instead of 1.5, get no correlation at all)
+
+
+```{r simple}
+set.seed(666)  ## a bad seed
+dat<-mvrnorm(n = 500, mu=c(0,0), Sigma=matrix(c(2,1.5,1.5,2),nrow=2, ncol=2)) 
+plot(dat)
+```
+
+Using the `prcomp()` and `princomp()` functions in R to perform principle components analysis.  Here is a link outlining the differences: <http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/>
+
+```{r}
+#princomp(dat,cor=FALSE)
+temp<-prcomp(dat)
+#temp.eigen<-eigen(cov(dat))
+temp  ## print the principle components.
+pca<-princomp(dat, cor=FALSE)
+summary(pca)   ## different output
+pca$sdev^2/sum(pca$sdev^2)  ## find proportion of variance explained
+
+```
+
+Usually we use PCA to create plots.  The code below adds vectors that show the directions of the two princ. components.  What do you see?
+
+```{r}
+par(pty="s")
+plot(dat,ylim=c(-4,4),xlim=c(-4,4))
+arrows(0, 0, -0.7185, -0.6955,length=0.15,col="red")
+arrows(0, 0, -0.6955, 0.7185,length=0.15,col="blue")
+       #col = par("fg"), lty = par("lty"), xpd = FALSE)
+
+
+```
+
+Make a PCA plot.  Both base R and ggplot are below. Same plot as before, but reoriented to make principle components x and y values
+
+```{r}
+pca <- prcomp(dat,scale.=TRUE,center=TRUE)
+pca.data = data.frame(pca = pca$x)
+prop.pca <- pca$sdev^2/sum(pca$sdev^2)  ## find proportion of variance explained
+plot(pca.PC2~pca.PC1,data=pca.data)  ## using base R
+
+ggplot(pca.data) + geom_point(aes(pca.PC1, pca.PC2), size = 2.5) +
+  labs(x = paste("PC1 (", percent(prop.pca[1]), ")", sep=""),
+       y = paste("PC2 (", percent(prop.pca[2]), ")", sep=""))
+
+
+```
+
+
+You try one.  The example below contains uncorrelated data (x is independent of y).  Perform PCA.   
+
+```{r}
+set.seed(999)
+dat<-mvrnorm(n = 500, mu=c(0,0), Sigma=matrix(c(2,0,0,2),nrow=2, ncol=2)) 
+par(pty="s")
+plot(dat,ylim=c(-4,4),xlim=c(-4,4))
+
+pca <- prcomp(dat)
+pca.data = data.frame(pca = pca$x)
+prop.pca <- pca$sdev^2/sum(pca$sdev^2)  ## find proportion of variance explained
+plot(pca.PC2~pca.PC1,data=pca.data)
+
+ggplot(pca.data) + geom_point(aes(pca.PC1, pca.PC2), size = 2.5) +
+  labs(x = paste("PC1 (", percent(prop.pca[1]), ")", sep=""),
+       y = paste("PC2 (", percent(prop.pca[2]), ")", sep=""))
+
+```
+
+This example already has most of the variability in the x direction.  Can you guess what the princ. comp. decomposition will look like?
+
+```{r}
+set.seed(123)
+dat<-mvrnorm(n = 500, mu=c(0,0), Sigma=matrix(c(2,0,0,0.1),nrow=2, ncol=2)) 
+par(pty="s")
+plot(dat,ylim=c(-4,4),xlim=c(-4,4))
+
+#PCA plot
+pca <- prcomp(dat)#scale.=TRUE,center=TRUE
+pca.data = data.frame(pca = pca$x)
+prop.pca <- pca$sdev^2/sum(pca$sdev^2)  ## find proportion of variance explained
+plot(pca.PC2~pca.PC1,data=pca.data)
+
+ggplot(pca.data) + geom_point(aes(pca.PC1, pca.PC2), size = 2.5) +
+  labs(x = paste("PC1 (", percent(prop.pca[1]), ")", sep=""),
+       y = paste("PC2 (", percent(prop.pca[2]), ")", sep=""))
+
+```
+
+### PCA with categorical variable
+
+In practice we use PCA to visualize "clusters".  Here is a very simple example.
+
+```{r}
+## make fake data, create data frame with categorical variable
+set.seed(123)
+dat<-mvrnorm(n = 500, mu=c(0,0), Sigma=matrix(c(2,1.5,1.5,2),nrow=2, ncol=2)) 
+datf<-data.frame(x=dat[,1],y=dat[,2],catgry=NA)
+## color the categories by location
+datf[which(datf$x>0),]$catgry<-"A"
+datf[which(datf$x<0),]$catgry<-"B"
+datf$catgry <- as.factor(datf$catgry)
+## see what it looks like
+plot(y~x, data=datf, col=as.integer(datf$catgry))
+```
+
+Now do PCA. (Picks components with greatest variance??, percentages decribe what percent of the variation is being explained by each component)
+
+Scree plots help identify components with greatest variants visually
+```{r}
+pca <- prcomp(datf[,-3],  ## omit categorical variables
+              center = TRUE,  ## can use if you want.
+              scale. = TRUE) 
+
+prop.pca <- pca$sdev^2/sum(pca$sdev^2)    ## percent variation explained
+
+
+plot(pca, type="l") # a "scree" plot (we'll discuss later)
+
+dataset = data.frame(grps = datf[,3], pca = pca$x)
+
+ggplot(dataset) + geom_point(aes(pca.PC1, pca.PC2, colour = grps, shape = grps), size = 2.5) +
+  labs(x = paste("PC1 (", percent(prop.pca[1]), ")", sep=""),
+       y = paste("PC2 (", percent(prop.pca[2]), ")", sep=""))
+
+#grid.arrange(p1, p2)
+```
+
+
+Here is an example where there is no pattern to the colors.  
+
+```{r}
+set.seed(123)
+dat<-mvrnorm(n = 100, mu=c(0,0), Sigma=matrix(c(2,1.5,1.5,2),nrow=2, ncol=2)) 
+
+datf<-data.frame(x=dat[,1],y=dat[,2],catgry=NA)
+datf$catgry<-sample(c("A","B"),size=length(datf$x),replace=TRUE)
+datf$catgry <- as.factor(datf$catgry)
+plot(y~x, data=datf, col=as.integer(datf$catgry))
+```
+
+### Three dimensional example
+
+Try to use what you learned above for a three dimensional example.  Now you will only plot the two principle components that contribute the most variability.
+
+
+```{r}
+dat<-mvrnorm(n = 500, mu=c(0,0,0), Sigma=matrix(c(0.5,0.1,0.1,0.1,3,0.1,0.1,0.1,5),nrow=3, ncol=3))
+par(pty="s")
+plot(dat[,c(1,2)],ylim=c(-4,4),xlim=c(-4,4))
+plot(dat[,c(1,3)],ylim=c(-4,4),xlim=c(-4,4))
+plot(dat[,c(2,3)],ylim=c(-4,4),xlim=c(-4,4))
+
+
+#Plotting PCA and scree plot
+pca <- prcomp(dat,  ## omit categorical variables
+              center = TRUE,  ## can use if you want.
+              scale. = TRUE) 
+
+prop.pca <- pca$sdev^2/sum(pca$sdev^2)    ## percent variation explained
+
+
+plot(pca, type="l") # a "scree" plot (we'll discuss later)
+
+dataset = data.frame(pca = pca$x)
+
+ggplot(dataset) + geom_point(aes(pca.PC1, pca.PC2), size = 2.5) +
+  labs(x = paste("PC1 (", percent(prop.pca[1]), ")", sep=""),
+       y = paste("PC2 (", percent(prop.pca[2]), ")", sep=""))
+
+```
+Large amount random noise in third example, so in two dimensions (mostly) linear but not correlated in one.  PC1 and PC2 each represent ~30% of the variance from model
+
+## Example using the iris petals data
+
+The `iris` data has one categorical variable (Species) and four quantitative variables.  
+```{r}
+data("iris")
+```
+
+
+Plot of two quant. variables.
+
+```{r}
+ggplot(iris) + geom_point(aes(Sepal.Length, Sepal.Width, colour = Species), size = 2.5)
+```
+
+PCA with only the first two quant. variables.
+
+```{r}
+pca <- prcomp(iris[,c(1,2)],  ## omit categorical variables, can look at c(1,3), etc
+              center = TRUE,  ## can use if you want.
+              scale. = TRUE) 
+
+prop.pca <- pca$sdev^2/sum(pca$sdev^2)    ## percent variation explained
+
+
+plot(pca, type="l") # a "scree" plot (we'll discuss later)
+
+dataset = data.frame(grps = iris[,5], pca = pca$x)
+
+ggplot(dataset) + geom_point(aes(pca.PC1, pca.PC2, colour = grps), size = 2.5) +
+  labs(x = paste("PC1 (", percent(prop.pca[1]), ")", sep=""),
+       y = paste("PC2 (", percent(prop.pca[2]), ")", sep=""))
+
+```
+
+For you.  Do PCA using all four quantitative variables (just use the code above).
+
+
+```{r}
+pca <- prcomp(iris[,c(-5)],  ## omit categorical variables
+              center = TRUE,  ## can use if you want.
+              scale. = TRUE) 
+
+prop.pca <- pca$sdev^2/sum(pca$sdev^2)    ## percent variation explained
+
+
+plot(pca, type="l") # a "scree" plot (we'll discuss later)
+
+dataset = data.frame(grps = iris[,5], pca = pca$x)
+
+ggplot(dataset) + geom_point(aes(pca.PC1, pca.PC2, colour = grps), size = 2.5) +
+  labs(x = paste("PC1 (", percent(prop.pca[1]), ")", sep=""),
+       y = paste("PC2 (", percent(prop.pca[2]), ")", sep=""))
+
+
+```
+
+<http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/>
+
